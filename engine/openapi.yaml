@@ -1,0 +1,137 @@
+openapi: 3.1.0
+info:
+  title: ScriptFlow AI B-roll Engine
+  version: 0.2.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      responses:
+        "200": { description: Service alive }
+  /ready:
+    get:
+      responses:
+        "200": { description: Service ready }
+  /api/v1/broll/jobs:
+    post:
+      summary: Create script or scene-list render job
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobRequest' }
+      responses:
+        "202": { description: Accepted for background processing }
+        "409": { $ref: '#/components/responses/Error' }
+  /api/v1/broll/jobs/upload:
+    post:
+      summary: Create an audio upload job
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                voice: { type: string }
+                aspect_ratios: { type: string }
+                style: { type: string }
+                avoid: { type: string }
+      responses:
+        "202": { description: Accepted }
+        "415": { $ref: '#/components/responses/Error' }
+  /api/v1/jobs:
+    get:
+      responses:
+        "200": { description: Jobs list }
+  /api/v1/jobs/{job_id}:
+    get:
+      parameters: [{ $ref: '#/components/parameters/JobId' }]
+      responses:
+        "200": { description: Job status, progress and result links }
+        "404": { $ref: '#/components/responses/Error' }
+  /api/v1/jobs/{job_id}/retry:
+    post:
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      responses:
+        "202": { description: Retry accepted }
+        "409": { $ref: '#/components/responses/Error' }
+  /api/v1/jobs/{job_id}/files/{filename}:
+    get:
+      parameters:
+        - { $ref: '#/components/parameters/JobId' }
+        - in: path
+          name: filename
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: File bytes }
+        "404": { $ref: '#/components/responses/Error' }
+components:
+  parameters:
+    JobId:
+      in: path
+      name: job_id
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Error:
+      description: Structured error envelope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    JobRequest:
+      type: object
+      properties:
+        audio_url: { type: [string, "null"], format: uri }
+        script: { type: [string, "null"] }
+        scenes:
+          type: [array, "null"]
+          items:
+            type: object
+            required: [text]
+            properties:
+              text: { type: string, minLength: 1 }
+              visual_hint: { type: [string, "null"] }
+        voice: { type: string, default: en-IN-female }
+        aspect_ratios:
+          type: array
+          minItems: 1
+          items: { enum: ["16:9", "9:16", "1:1"] }
+        style: { type: string }
+        avoid: { type: array, items: { type: string } }
+        captions:
+          type: object
+          properties:
+            burn_in: { type: boolean, default: true }
+            srt: { type: boolean, default: true }
+      description: Exactly one of audio_url, script or scenes is required; remote URL inputs are not implemented yet.
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, retryable, details]
+          properties:
+            code: { type: string, pattern: '^[A-Z0-9_]+$' }
+            message: { type: string }
+            retryable: { type: boolean }
+            details: { type: object }
