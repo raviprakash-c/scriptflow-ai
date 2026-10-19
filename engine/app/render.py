@@ -99,8 +99,14 @@ def render_job(job_id,request,input_path,progress):
             try:
                 local_video_path=download_clip(asset.download_url,outdir/f"scene-{i+1:03}-source.mp4")
             except Exception as exc:
-                fallback,score,why=search_footage(scene.visual_hint or scene.text,request.avoid,used)
-                asset=fallback;used.add(asset.footage_id);reason=f"Licensed stock download failed ({type(exc).__name__}); placeholder fallback selected. {why}"
+                fallback,score,why=provider.search(scene.visual_hint or scene.text,request.avoid,used)
+                if fallback.download_url:
+                    try:
+                        local_video_path=download_clip(fallback.download_url,outdir/f"scene-{i+1:03}-fallback.mp4")
+                    except Exception:
+                        fallback,score,why=search_footage(scene.visual_hint or scene.text,request.avoid,used)
+                        local_video_path=None
+                asset=fallback;used.add(asset.footage_id);reason=f"Primary stock download failed ({type(exc).__name__}); fallback selected. {why}"
         warnings_scene=[]
         if local_video_path:
             warnings_scene.append(asset.rights_note or "Review third-party rights before publication.")
