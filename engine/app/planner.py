@@ -8,7 +8,7 @@ class PlannedScene:
     end:float
 _SPLIT=re.compile(r"(?<=[.!?。！？])\s+|\n+")
 def split_script(script:str)->list[str]:
-    clean=re.sub(r"\\s+"," ",script).strip()
+    clean=re.sub(r"\s+"," ",script).strip()
     if not clean: return []
     out=[]
     for sentence in (s.strip() for s in _SPLIT.split(clean) if s.strip()):
