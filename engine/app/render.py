@@ -1,12 +1,31 @@
 import html,json,logging,os,shutil,subprocess,time,wave
+import httpx
 from datetime import datetime,timezone
 from pathlib import Path
 from .config import settings
 from .planner import plan_scenes,split_script
-from .providers import get_footage_provider
+from .providers import FootageProvider,get_footage_provider,search_footage
 log=logging.getLogger("scriptflow.render")
 def now(): return datetime.now(timezone.utc).isoformat()
 def run(cmd,timeout=600): return subprocess.run(cmd,check=True,capture_output=True,text=True,timeout=timeout)
+def download_clip(url,path):
+    limit=settings.max_stock_clip_mb*1024*1024
+    total=0
+    with httpx.stream("GET",url,follow_redirects=True,timeout=30) as response:
+        response.raise_for_status()
+        with path.open("wb") as out:
+            for chunk in response.iter_bytes(1024*1024):
+                if not chunk:continue
+                total+=len(chunk)
+                if total>limit:
+                    path.unlink(missing_ok=True)
+                    raise ValueError(f"Stock clip exceeds {settings.max_stock_clip_mb} MB limit.")
+                out.write(chunk)
+    if total<1024:
+        path.unlink(missing_ok=True)
+        raise ValueError("Stock clip download was empty or too small.")
+    return path
+
 def probe_duration(path):
     exe=shutil.which("ffprobe")
     if not exe: raise RuntimeError("ffprobe is required for audio inputs; install FFmpeg.")
@@ -75,9 +94,20 @@ def render_job(job_id,request,input_path,progress):
         asset,score,reason=provider.search(scene.visual_hint or scene.text,request.avoid,used)
         if asset.footage_id in used:raise RuntimeError("Repeated footage selected; refusing duplicate clips.")
         used.add(asset.footage_id)
-        warnings_scene=["Generated placeholder visual; commercial use is not verified."]
+        local_video_path=None
+        if asset.download_url:
+            try:
+                local_video_path=download_clip(asset.download_url,outdir/f"{scene and f'scene-{i+1:03}'}-source.mp4")
+            except Exception as exc:
+                fallback,score,why=search_footage(scene.visual_hint or scene.text,request.avoid,used)
+                asset=fallback;reason=f"Licensed stock download failed ({type(exc).__name__}); placeholder fallback selected. {why}"
+        warnings_scene=[]
+        if local_video_path:
+            warnings_scene.append(asset.rights_note or "Review third-party rights before publication.")
+        else:
+            warnings_scene.append("Generated placeholder visual; commercial use is not verified.")
         if score<.4:warnings_scene.append("Low relevance confidence; manual review needed.")
-        rows.append({"scene_id":f"scene-{i+1:03}","text":scene.text,"start":scene.start,"end":scene.end,"duration":round(scene.end-scene.start,3),"footage_id":asset.footage_id,"source":asset.source,"source_url":asset.source_url,"license":asset.license,"attribution":asset.attribution,"commercial_use":asset.commercial_use,"ai_generated":asset.ai_generated,"selection_reason":reason,"relevance_score":score,"warnings":warnings_scene,"color":colors.get(asset.footage_id,"#A3A9B7")})
+        rows.append({"scene_id":f"scene-{i+1:03}","text":scene.text,"start":scene.start,"end":scene.end,"duration":round(scene.end-scene.start,3),"footage_id":asset.footage_id,"source":asset.source,"source_url":asset.source_url,"license":asset.license,"attribution":asset.attribution,"commercial_use":asset.commercial_use,"ai_generated":asset.ai_generated,"selection_reason":reason,"relevance_score":score,"warnings":warnings_scene,"color":colors.get(asset.footage_id,"#A3A9B7"),"local_video_path":str(local_video_path) if local_video_path else None})
         progress(10+int(25*(i+1)/len(plan)),"matching-footage")
     ffmpeg=shutil.which("ffmpeg");outputs={};sizes={"16:9":(1920,1080),"9:16":(1080,1920),"1:1":(1080,1080)}
     if not ffmpeg:warnings.append("FFmpeg missing; no MP4 output rendered.")
@@ -87,9 +117,12 @@ def render_job(job_id,request,input_path,progress):
             w,h=sizes[ratio];files=[]
             for row in rows:
                 tag=ratio.replace(":","x");svg=outdir/f"{row['scene_id']}-{tag}.svg";png=svg.with_suffix(".png");seg=outdir/f"{row['scene_id']}-{tag}.mp4"
-                write_svg(svg,row["text"],row["color"],ratio)
-                run([ffmpeg,"-y","-loglevel","error","-i",str(svg),"-frames:v","1",str(png)],60)
-                run([ffmpeg,"-y","-loglevel","error","-loop","1","-framerate",str(settings.default_fps),"-i",str(png),"-t",f"{max(.1,row['duration']):.3f}","-vf",f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p","-r",str(settings.default_fps),"-an","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p",str(seg)],120)
+                if row.get("local_video_path"):
+                    run([ffmpeg,"-y","-loglevel","error","-stream_loop","-1","-i",row["local_video_path"],"-t",f"{max(.1,row['duration']):.3f}","-vf",f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={settings.default_fps},format=yuv420p","-an","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-movflags","+faststart",str(seg)],180)
+                else:
+                    write_svg(svg,row["text"],row["color"],ratio)
+                    run([ffmpeg,"-y","-loglevel","error","-i",str(svg),"-frames:v","1",str(png)],60)
+                    run([ffmpeg,"-y","-loglevel","error","-loop","1","-framerate",str(settings.default_fps),"-i",str(png),"-t",f"{max(.1,row['duration']):.3f}","-vf",f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p","-r",str(settings.default_fps),"-an","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p",str(seg)],120)
                 files.append(seg)
             concat=outdir/f"concat-{ratio.replace(':','x')}.txt";concat.write_text("".join(f"file '{x.as_posix()}'\\n" for x in files))
             video=outdir/f"video_{ratio.replace(':','x')}.mp4"
@@ -101,10 +134,10 @@ def render_job(job_id,request,input_path,progress):
     progress(82,"writing-outputs")
     if request.captions.srt:
         (outdir/"captions.srt").write_text(build_srt(rows));outputs["captions.srt"]=f"/api/v1/jobs/{job_id}/files/captions.srt"
-    safe_rows=[{k:v for k,v in x.items() if k!="color"} for x in rows]
+    safe_rows=[{k:v for k,v in x.items() if k not in {"color","local_video_path"}} for x in rows]
     timeline={"job_id":job_id,"duration":round(duration,3),"audio_source":audio_source,"scenes":safe_rows,"coverage_seconds":round(sum(x["duration"] for x in rows),3),"repeated_clip_ids":[],"warnings":warnings}
     (outdir/"timeline.json").write_text(json.dumps(timeline,indent=2,ensure_ascii=False));outputs["timeline.json"]=f"/api/v1/jobs/{job_id}/files/timeline.json"
-    manifest={"job_id":job_id,"status":"succeeded","providers":{"footage":provider.name,"tts":tts_provider},"versions":{"scriptflow":"0.2.0","ffmpeg":None},"settings":{"voice":request.voice,"style":request.style,"avoid":request.avoid,"aspect_ratios":request.aspect_ratios,"captions":request.captions.model_dump(),"fps":settings.default_fps},"seed":request.seed,"timings":{"elapsed_seconds":round(time.perf_counter()-t0,3),"duration_seconds":duration},"cost_estimate_usd":0 if tts_provider=="mock-silent" else None,"warnings":warnings,"rights":{"commercial_media_verified":False,"note":"Only generated placeholder visuals included; configure a verified commercial source before publishing."},"outputs":outputs}
+    manifest={"job_id":job_id,"status":"succeeded","providers":{"footage":provider.name,"tts":tts_provider},"versions":{"scriptflow":"0.2.0","ffmpeg":None},"settings":{"voice":request.voice,"style":request.style,"avoid":request.avoid,"aspect_ratios":request.aspect_ratios,"captions":request.captions.model_dump(),"fps":settings.default_fps},"seed":request.seed,"timings":{"elapsed_seconds":round(time.perf_counter()-t0,3),"duration_seconds":duration},"cost_estimate_usd":0 if tts_provider=="mock-silent" else None,"warnings":warnings,"rights":{"commercial_media_verified":bool(rows) and all(x["commercial_use"] and x["source"]=="Pexels" and x.get("local_video_path") for x in rows),"rights_review_required":True,"note":"Pexels clips are used under the Pexels License when downloaded successfully. Review depicted people, trademarks and other third-party rights before publication; placeholders are not commercially verified."},"outputs":outputs}
     (outdir/"manifest.json").write_text(json.dumps(manifest,indent=2));outputs["manifest.json"]=f"/api/v1/jobs/{job_id}/files/manifest.json"
     manifest["output_validation"]={n:{"exists":(outdir/n).exists(),"size_bytes":(outdir/n).stat().st_size if (outdir/n).exists() else 0} for n in outputs}
     (outdir/"manifest.json").write_text(json.dumps(manifest,indent=2));progress(100,"complete")
