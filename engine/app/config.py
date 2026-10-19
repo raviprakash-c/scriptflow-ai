@@ -10,6 +10,7 @@ class Settings:
     output_dir: Path=Path(os.getenv("OUTPUT_DIR","./outputs")).resolve()
     max_audio_seconds: int=_int("MAX_AUDIO_SECONDS",600)
     max_upload_mb: int=_int("MAX_UPLOAD_MB",100)
+    max_stock_clip_mb: int=_int("MAX_STOCK_CLIP_MB",80)
     default_fps: int=_int("OUTPUT_FPS",30)
     default_voice: str=os.getenv("DEFAULT_VOICE","en-IN-female")
     tts_provider: str=os.getenv("TTS_PROVIDER","mock")
