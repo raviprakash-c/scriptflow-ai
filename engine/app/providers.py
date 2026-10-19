@@ -96,9 +96,67 @@ class PexelsFootageProvider:
             asset,score,reason=search_footage(query,avoid,used_ids)
             return asset,score,f"Pexels search failed ({type(exc).__name__}); placeholder fallback selected. {reason}"
 
+class PixabayFootageProvider:
+    name="pixabay"
+    endpoint="https://pixabay.com/api/videos/"
+    def __init__(self,api_key:str):
+        self.api_key=api_key
+    def search(self,query,avoid=None,used_ids=None):
+        used_ids=used_ids or set()
+        search_terms=" ".join(x for x in query.split() if x.lower() not in tokens(" ".join(avoid or []))).strip() or query
+        try:
+            response=httpx.get(self.endpoint,params={"key":self.api_key,"q":search_terms,"per_page":20,"safesearch":"true","order":"popular"},timeout=20,follow_redirects=True)
+            response.raise_for_status()
+            for video in response.json().get("hits",[]):
+                vid=str(video.get("id",""))
+                if not vid or f"pixabay-{vid}" in used_ids:continue
+                versions=video.get("videos") or {}
+                chosen=versions.get("medium") or versions.get("small") or versions.get("tiny") or versions.get("large")
+                if not chosen or not chosen.get("url"):continue
+                user=video.get("user") or "Pixabay contributor"
+                asset=FootageCandidate(
+                    footage_id=f"pixabay-{vid}",
+                    source="Pixabay",
+                    source_url=video.get("pageURL") or "https://pixabay.com/videos/",
+                    license="Pixabay Content License",
+                    attribution=f"Video by {user} via Pixabay",
+                    commercial_use=True,
+                    ai_generated=False,
+                    visual=f"Stock footage from Pixabay: {search_terms}",
+                    download_url=chosen.get("url"),
+                    rights_note="Pixabay permits commercial use subject to its Content License; review depicted people, trademarks, logos and other third-party rights before publication."
+                )
+                return asset,.68,f"Pixabay API matched query: {search_terms}."
+            raise RuntimeError("Pixabay returned no unused MP4 video candidates.")
+        except Exception as exc:
+            asset,score,reason=search_footage(query,avoid,used_ids)
+            return asset,score,f"Pixabay search failed ({type(exc).__name__}); placeholder fallback selected. {reason}"
+
+class CompositeFootageProvider:
+    name="pexels+pixabay"
+    def __init__(self,providers):
+        self.providers=providers
+    def search(self,query,avoid=None,used_ids=None):
+        fallback=None;reasons=[]
+        for provider in self.providers:
+            asset,score,reason=provider.search(query,avoid,used_ids)
+            if asset.source in {"Pexels","Pixabay"} and asset.download_url:
+                return asset,score,reason
+            fallback=(asset,score,reason);reasons.append(f"{provider.name}: {reason}")
+        if fallback:
+            asset,score,reason=fallback
+            return asset,score,"No licensed provider returned a downloadable clip. "+" | ".join(reasons)
+        return search_footage(query,avoid,used_ids)
+
 def get_footage_provider():
-    provider=os.getenv("FOOTAGE_PROVIDER","mock").strip().lower()
-    api_key=os.getenv("PEXELS_API_KEY","").strip()
-    if provider=="pexels" and api_key:
-        return PexelsFootageProvider(api_key)
+    requested=os.getenv("FOOTAGE_PROVIDER","mock").strip().lower()
+    pexels_key=os.getenv("PEXELS_API_KEY","").strip()
+    pixabay_key=os.getenv("PIXABAY_API_KEY","").strip()
+    if requested in {"pexels","composite","auto"}:
+        providers=[]
+        if pexels_key:providers.append(PexelsFootageProvider(pexels_key))
+        if pixabay_key:providers.append(PixabayFootageProvider(pixabay_key))
+        if len(providers)>1:return CompositeFootageProvider(providers)
+        if providers:return providers[0]
+    if requested=="pixabay" and pixabay_key:return PixabayFootageProvider(pixabay_key)
     return FootageProvider()
