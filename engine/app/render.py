@@ -33,7 +33,7 @@ def probe_duration(path):
     except ValueError as e: raise ValueError("Could not read audio duration; audio may be corrupted.") from e
 def make_silent_audio(path,dur):
     with wave.open(str(path),"wb") as wf:
-        wf.setnchannels(1);wf.setsampwidth(2);wf.setframerate(16000);wf.writeframes(b"\\x00\\x00"*int(dur*16000))
+        wf.setnchannels(1);wf.setsampwidth(2);wf.setframerate(16000);wf.writeframes(b"\x00\x00"*int(dur*16000))
 def srt_time(sec):
     ms=int(round(sec*1000));h,rem=divmod(ms,3600000);m,rem=divmod(rem,60000);s,ms=divmod(rem,1000)
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
@@ -44,7 +44,7 @@ def build_srt(scenes):
         weights=[max(1,len(c.split())) for c in chunks];total=sum(weights);at=sc["start"];dur=max(.1,sc["end"]-sc["start"])
         for c,w in zip(chunks,weights):
             dt=dur*w/total;lines.extend([str(n),f"{srt_time(at)} --> {srt_time(at+dt)}",c,""]);n+=1;at+=dt
-    return "\\n".join(lines).strip()+"\\n"
+    return "\n".join(lines).strip()+"\n"
 def write_svg(path,title,color,ratio):
     sizes={"16:9":(1920,1080),"9:16":(1080,1920),"1:1":(1080,1080)};w,h=sizes[ratio]
     label=html.escape(title[:80],quote=True);font=int(min(w,h)*.044)
@@ -124,7 +124,7 @@ def render_job(job_id,request,input_path,progress):
                     run([ffmpeg,"-y","-loglevel","error","-i",str(svg),"-frames:v","1",str(png)],60)
                     run([ffmpeg,"-y","-loglevel","error","-loop","1","-framerate",str(settings.default_fps),"-i",str(png),"-t",f"{max(.1,row['duration']):.3f}","-vf",f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p","-r",str(settings.default_fps),"-an","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p",str(seg)],120)
                 files.append(seg)
-            concat=outdir/f"concat-{ratio.replace(':','x')}.txt";concat.write_text("".join(f"file '{x.as_posix()}'\\n" for x in files))
+            concat=outdir/f"concat-{ratio.replace(':','x')}.txt";concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in files))
             video=outdir/f"video_{ratio.replace(':','x')}.mp4"
             run([ffmpeg,"-y","-loglevel","error","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(video)],300)
             if input_path and input_path.exists():
