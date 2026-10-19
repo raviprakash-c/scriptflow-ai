@@ -1,4 +1,5 @@
-import {useEffect,useState} from "react";\nimport type {ReactNode} from "react";
+import {useEffect,useState} from "react";
+import type {ReactNode} from "react";
 import {Link,NavLink,Route,Routes,useNavigate,useParams} from "react-router-dom";
 import {Activity,ArrowDownToLine,ArrowLeft,ArrowRight,Check,ChevronDown,Clapperboard,Clock3,FileAudio,FileJson,Film,FolderOpen,LayoutDashboard,LoaderCircle,Menu,Mic2,MoreHorizontal,Play,Plus,Search,Settings2,ShieldCheck,Sparkles,Subtitles,Trash2,UploadCloud,Video,Volume2,X} from "lucide-react";
 import type {Project,Scene} from "./types";
