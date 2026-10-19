@@ -51,6 +51,6 @@ This is not a distributed queue: do not run multiple API replicas against local 
 
 ## Current limits
 
-Remote audio URL ingestion is not implemented; uploaded audio transcription requires the optional audio extra. Subtitle burn-in and comprehensive codec/black-frame/audio-sync validation are not configured. Provider adapters have mocked-response unit tests but have not been exercised with real API keys in this environment. Ten-input performance, human relevance and cost metrics are not yet measured.
+Remote audio URL ingestion is not implemented; uploaded audio transcription requires the optional audio extra. Subtitle burn-in is enabled when requested and MP4 metadata is checked with ffprobe for H.264, expected dimensions, audio stream, duration and minimum file size. Black/frozen-frame detection and full audio-sync checks remain unimplemented. Provider adapters have mocked-response unit tests but have not been exercised with real API keys in this environment. Ten-input performance, human relevance and cost metrics are not yet measured.
 
 See REPORT.md, SOURCES.md, AI_USE.md, and ../docs/ROADMAP.md.

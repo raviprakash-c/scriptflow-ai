@@ -31,6 +31,35 @@ def probe_duration(path):
     if not exe: raise RuntimeError("ffprobe is required for audio inputs; install FFmpeg.")
     try: return float(run([exe,"-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",str(path)],30).stdout.strip())
     except ValueError as e: raise ValueError("Could not read audio duration; audio may be corrupted.") from e
+
+def validate_video(path, expected_width, expected_height, expected_duration):
+    """Fail the render if the MP4 is missing expected streams or has implausible metadata."""
+    exe=shutil.which("ffprobe")
+    if not exe: raise RuntimeError("ffprobe is required to validate rendered MP4 output; install FFmpeg.")
+    raw=run([exe,"-v","error","-show_streams","-show_format","-of","json",str(path)],30).stdout
+    try: data=json.loads(raw)
+    except json.JSONDecodeError as exc: raise ValueError("ffprobe returned invalid output metadata.") from exc
+    streams=data.get("streams",[])
+    video=next((s for s in streams if s.get("codec_type")=="video"),None)
+    audio=next((s for s in streams if s.get("codec_type")=="audio"),None)
+    if not video: raise ValueError("Rendered MP4 has no video stream.")
+    if not audio: raise ValueError("Rendered MP4 has no audio stream.")
+    if int(video.get("width") or 0)!=expected_width or int(video.get("height") or 0)!=expected_height:
+        raise ValueError(f"Rendered dimensions do not match expected {expected_width}x{expected_height}.")
+    if video.get("codec_name")!="h264": raise ValueError("Rendered video codec is not H.264.")
+    try: actual_duration=float(data.get("format",{}).get("duration",0))
+    except (TypeError,ValueError) as exc: raise ValueError("Rendered MP4 duration is invalid.") from exc
+    if actual_duration<=0: raise ValueError("Rendered MP4 has no positive duration.")
+    if abs(actual_duration-expected_duration)>max(2.0,expected_duration*.05):
+        raise ValueError("Rendered MP4 duration differs materially from the planned timeline.")
+    size=Path(path).stat().st_size
+    if size<1024: raise ValueError("Rendered MP4 is unexpectedly small.")
+    return {"codec":video.get("codec_name"),"width":expected_width,"height":expected_height,
+            "duration_seconds":round(actual_duration,3),"has_audio":True,"size_bytes":size}
+
+def ffmpeg_filter_path(path):
+    # FFmpeg filter arguments use their own escaping rules, even on Windows.
+    return str(Path(path).resolve()).replace("\\","/").replace(":","\\:").replace("'","\\'").replace(",","\\,")
 def make_silent_audio(path,dur):
     with wave.open(str(path),"wb") as wf:
         wf.setnchannels(1);wf.setsampwidth(2);wf.setframerate(16000);wf.writeframes(b"\x00\x00"*int(dur*16000))
@@ -116,10 +145,12 @@ def render_job(job_id,request,input_path,progress):
         if score<.4:warnings_scene.append("Low relevance confidence; manual review needed.")
         rows.append({"scene_id":f"scene-{i+1:03}","text":scene.text,"start":scene.start,"end":scene.end,"duration":round(scene.end-scene.start,3),"footage_id":asset.footage_id,"source":asset.source,"source_url":asset.source_url,"license":asset.license,"attribution":asset.attribution,"commercial_use":asset.commercial_use,"ai_generated":asset.ai_generated,"selection_reason":reason,"relevance_score":score,"warnings":warnings_scene,"color":colors.get(asset.footage_id,"#A3A9B7"),"local_video_path":str(local_video_path) if local_video_path else None})
         progress(10+int(25*(i+1)/len(plan)),"matching-footage")
-    ffmpeg=shutil.which("ffmpeg");outputs={};sizes={"16:9":(1920,1080),"9:16":(1080,1920),"1:1":(1080,1080)}
-    if not ffmpeg:warnings.append("FFmpeg missing; no MP4 output rendered.")
-    else:
-        for ri,ratio in enumerate(request.aspect_ratios):
+    ffmpeg=shutil.which("ffmpeg");outputs={};validated_outputs={};sizes={"16:9":(1920,1080),"9:16":(1080,1920),"1:1":(1080,1080)}
+    if not ffmpeg: raise RuntimeError("FFmpeg is required to create MP4 output; install FFmpeg and ffprobe.")
+    srt_path=outdir/"captions.srt"
+    if request.captions.srt or request.captions.burn_in:
+        srt_path.write_text(build_srt(rows),encoding="utf-8")
+    for ri,ratio in enumerate(request.aspect_ratios):
             progress(38+int(12*ri/len(request.aspect_ratios)),f"rendering-{ratio.replace(':','x')}")
             w,h=sizes[ratio];files=[]
             for row in rows:
@@ -134,18 +165,26 @@ def render_job(job_id,request,input_path,progress):
             concat=outdir/f"concat-{ratio.replace(':','x')}.txt";concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in files))
             video=outdir/f"video_{ratio.replace(':','x')}.mp4"
             run([ffmpeg,"-y","-loglevel","error","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(video)],300)
+            if request.captions.burn_in:
+                captioned=outdir/f"captioned-{ratio.replace(':','x')}.mp4"
+                font_size=42 if ratio=="9:16" else 32
+                subtitle_filter=f"subtitles='{ffmpeg_filter_path(srt_path)}':force_style='FontName=Arial,FontSize={font_size},Outline=2,Shadow=1,Alignment=2,MarginV=48'"
+                run([ffmpeg,"-y","-loglevel","error","-i",str(video),"-vf",subtitle_filter,"-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-movflags","+faststart",str(captioned)],300)
+                captioned.replace(video)
             if input_path and input_path.exists():
                 mux=outdir/f"mux-{ratio.replace(':','x')}.mp4"
                 run([ffmpeg,"-y","-loglevel","error","-i",str(video),"-i",str(input_path),"-map","0:v:0","-map","1:a:0","-c:v","copy","-c:a","aac","-shortest","-movflags","+faststart",str(mux)],300);mux.replace(video)
+            validation=validate_video(video,w,h,duration)
+            validated_outputs[f"video_{ratio.replace(':','x')}.mp4"]=validation
             outputs[f"video_{ratio.replace(':','x')}.mp4"]=f"/api/v1/jobs/{job_id}/files/video_{ratio.replace(':','x')}.mp4"
     progress(82,"writing-outputs")
     if request.captions.srt:
-        (outdir/"captions.srt").write_text(build_srt(rows));outputs["captions.srt"]=f"/api/v1/jobs/{job_id}/files/captions.srt"
+        outputs["captions.srt"]=f"/api/v1/jobs/{job_id}/files/captions.srt"
     safe_rows=[{k:v for k,v in x.items() if k not in {"color","local_video_path"}} for x in rows]
     timeline={"job_id":job_id,"duration":round(duration,3),"audio_source":audio_source,"scenes":safe_rows,"coverage_seconds":round(sum(x["duration"] for x in rows),3),"repeated_clip_ids":[],"warnings":warnings}
     (outdir/"timeline.json").write_text(json.dumps(timeline,indent=2,ensure_ascii=False));outputs["timeline.json"]=f"/api/v1/jobs/{job_id}/files/timeline.json"
-    manifest={"job_id":job_id,"status":"succeeded","providers":{"footage":provider.name,"tts":tts_provider},"versions":{"scriptflow":"0.2.0","ffmpeg":None},"settings":{"voice":request.voice,"style":request.style,"avoid":request.avoid,"aspect_ratios":request.aspect_ratios,"captions":request.captions.model_dump(),"fps":settings.default_fps},"seed":request.seed,"timings":{"elapsed_seconds":round(time.perf_counter()-t0,3),"duration_seconds":duration},"cost_estimate_usd":0 if tts_provider=="mock-silent" else None,"warnings":warnings,"rights":{"commercial_media_verified":bool(rows) and all(x["commercial_use"] and x["source"]=="Pexels" and x.get("local_video_path") for x in rows),"rights_review_required":True,"note":"Pexels clips are used under the Pexels License when downloaded successfully. Review depicted people, trademarks and other third-party rights before publication; placeholders are not commercially verified."},"outputs":outputs}
+    manifest={"job_id":job_id,"status":"succeeded","providers":{"footage":provider.name,"tts":tts_provider},"versions":{"scriptflow":"0.2.0","ffmpeg":None},"settings":{"voice":request.voice,"style":request.style,"avoid":request.avoid,"aspect_ratios":request.aspect_ratios,"captions":request.captions.model_dump(),"fps":settings.default_fps},"seed":request.seed,"timings":{"elapsed_seconds":round(time.perf_counter()-t0,3),"duration_seconds":duration},"cost_estimate_usd":0 if tts_provider=="mock-silent" else None,"warnings":warnings,"rights":{"commercial_media_verified":bool(rows) and all(x["commercial_use"] and x["source"] in {"Pexels","Pixabay"} and x.get("local_video_path") for x in rows),"rights_review_required":True,"note":"Pexels/Pixabay clips are used under their respective licenses when downloaded successfully. Review depicted people, trademarks and other third-party rights before publication; placeholders are not commercially verified."},"outputs":outputs}
     (outdir/"manifest.json").write_text(json.dumps(manifest,indent=2));outputs["manifest.json"]=f"/api/v1/jobs/{job_id}/files/manifest.json"
-    manifest["output_validation"]={n:{"exists":(outdir/n).exists(),"size_bytes":(outdir/n).stat().st_size if (outdir/n).exists() else 0} for n in outputs}
+    manifest["output_validation"]={n:{"exists":(outdir/n).exists(),"size_bytes":(outdir/n).stat().st_size if (outdir/n).exists() else 0,**validated_outputs.get(n,{})} for n in outputs}
     (outdir/"manifest.json").write_text(json.dumps(manifest,indent=2));progress(100,"complete")
     return {"outputs":outputs,"timeline":timeline,"manifest":manifest,"duration":duration,"warnings":warnings}

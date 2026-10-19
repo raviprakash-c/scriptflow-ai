@@ -17,7 +17,7 @@ This roadmap follows the original Project-Initiation brief. A screen is not comp
 - [x] SQLite job and idempotency persistence for single-host use, plus restart recovery for interrupted jobs (follow-up branch; pending CI).
 - [ ] Durable distributed queue/shared database and object storage.
 - [ ] Remote audio URL ingestion with SSRF protection.
-- [ ] Subtitle burn-in and comprehensive output validation.
+- [x] SRT subtitle burn-in and basic ffprobe MP4 metadata validation (follow-up branch; pending CI).
 - [ ] Authentication/authorization, rate limiting, signed callbacks, and secured artifact delivery.
 - [ ] Social platform OAuth and actual publishing; do not fake connected accounts or published status.
 - [ ] Ten representative end-to-end render runs with evidence and measured metrics.
@@ -35,7 +35,7 @@ This roadmap follows the original Project-Initiation brief. A screen is not comp
 
 ## Remaining production work
 1. Add shared database/queue, storage lifecycle, retry/cancel semantics, authentication, authorization, rate limiting and secured artifact delivery.
-2. Implement remote audio ingestion safely (allow-list protocols, block private/link-local IPs, limit redirects/bytes/time), upload validation and subtitle burn-in.
+2. Implement remote audio ingestion safely (allow-list protocols, block private/link-local IPs, limit redirects/bytes/time) and strengthen upload validation. Extend output validation with black/frozen-frame and audio/video sync checks.
 3. Validate outputs with ffprobe (codec, dimensions, FPS, duration, audio/video sync), and detect black/frozen frames and uncovered scene gaps.
 4. Add Social Studio backend persistence and provider OAuth only when credentials and authorization are available; use explicit preview/confirmation and idempotent publishing.
 5. Deploy a public demo after secrets, persistence, monitoring and security checks are configured.
