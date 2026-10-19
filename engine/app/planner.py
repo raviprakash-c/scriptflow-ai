@@ -6,7 +6,7 @@ class PlannedScene:
     visual_hint:str|None
     start:float
     end:float
-_SPLIT=re.compile(r"(?<=[.!?。！？])\\s+|\\n+")
+_SPLIT=re.compile(r"(?<=[.!?。！？])\s+|\n+")
 def split_script(script:str)->list[str]:
     clean=re.sub(r"\\s+"," ",script).strip()
     if not clean: return []
@@ -16,7 +16,7 @@ def split_script(script:str)->list[str]:
         out.extend([sentence] if len(words)<=34 else [" ".join(words[i:i+24]) for i in range(0,len(words),24)])
     return out
 def estimate_word_duration(text:str)->float:
-    words=max(1,len(re.findall(r"\\b[\\w'-]+\\b",text)))
+    words=max(1,len(re.findall(r"\b[\w'-]+\b",text)))
     pause=sum(text.count(x) for x in ",;:")*.12+sum(text.count(x) for x in ".!?。！？")*.22
     return max(2.5,words/145*60+pause)
 def plan_scenes(texts:list[tuple[str,str|None]],total_duration:float|None=None)->list[PlannedScene]:
