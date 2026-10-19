@@ -313,6 +313,8 @@ def render_job(job_id,request,input_path,progress):
                 mux=outdir/f"mux-{ratio.replace(':','x')}.mp4"
                 run([ffmpeg,"-y","-loglevel","error","-i",str(video),"-i",str(input_path),"-map","0:v:0","-map","1:a:0","-c:v","copy","-c:a","aac","-shortest","-movflags","+faststart",str(mux)],300);mux.replace(video)
             validation=validate_video(video,w,h,duration)
+            for quality_warning in validation.get("quality_warnings", []):
+                warnings.append(f"{ratio} output: {quality_warning}")
             validated_outputs[f"video_{ratio.replace(':','x')}.mp4"]=validation
             outputs[f"video_{ratio.replace(':','x')}.mp4"]=f"/api/v1/jobs/{job_id}/files/video_{ratio.replace(':','x')}.mp4"
     progress(82,"writing-outputs")
