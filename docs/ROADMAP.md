@@ -11,9 +11,9 @@ This roadmap follows the original Project-Initiation brief. It separates what is
 ## Current validation status (2026-10-19)
 - [x] GitHub Actions production build: `ScriptFlowAI/frontend` passed.
 - [x] GitHub Actions production build: `SocialContentStudio/frontend` passed.
-- [x] Python syntax compilation and all 18 engine tests passed in CI.
-- [x] Optional Pexels provider adapter and mocked API test added; real API key is still needed for live validation.
-- Build workflow run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39214083022
+- [x] Python syntax compilation and all 20 engine tests passed in CI.
+- [x] Optional Pexels/Pixabay adapters and mocked API/fallback tests added; real API keys are still needed for live validation.
+- Build workflow run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39214536310
 - [ ] Browser-based manual user-journey testing is still required.
 - [ ] Engine/provider integration and ten-input production testing remain incomplete.
 
@@ -61,7 +61,7 @@ This roadmap follows the original Project-Initiation brief. It separates what is
 - [ ] Sample/demo data and integrations are clearly identified.
 - [ ] Mobile and keyboard flows are usable.
 - [x] Backend API contract is documented; 18 engine tests pass in GitHub Actions.
-- [ ] TTS creates real narration; video includes real licensed footage.
+- [ ] Live TTS produces real narration; video includes real licensed footage from configured providers.
 - [ ] Media rights are preserved and checked for every asset.
 - [ ] Durable jobs/storage, error handling and output validation are implemented.
 - [ ] Ten representative test runs have evidence and honest metrics.
