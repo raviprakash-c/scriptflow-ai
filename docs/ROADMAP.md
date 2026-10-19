@@ -11,7 +11,9 @@ This roadmap follows the original Project-Initiation brief. It separates what is
 ## Current validation status (2026-10-19)
 - [x] GitHub Actions production build: `ScriptFlowAI/frontend` passed.
 - [x] GitHub Actions production build: `SocialContentStudio/frontend` passed.
-- Build workflow run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39213435509
+- [x] Python syntax compilation and all 18 engine tests passed in CI.
+- [x] Optional Pexels provider adapter and mocked API test added; real API key is still needed for live validation.
+- Build workflow run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39214083022
 - [ ] Browser-based manual user-journey testing is still required.
 - [ ] Engine/provider integration and ten-input production testing remain incomplete.
 
@@ -25,8 +27,8 @@ This roadmap follows the original Project-Initiation brief. It separates what is
 7. Add CI build checks and record actual results in this document.
 
 ## Phase 2 — ScriptFlow engine: real outputs
-1. Configure real TTS behind a server-side provider interface. Validate that narration audio is non-empty and duration can be probed; no silent-audio fallback may be represented as a successful narrated render.
-2. Add a licensed footage provider with a second provider/fallback. Download actual video clips and use them in the FFmpeg timeline, rather than drawing placeholder SVGs regardless of provider response.
+1. Run Edge TTS with the configured voice on live network; validate non-empty narration audio and probed duration. A silent-audio fallback must never be represented as a narrated render.
+2. Configure a real Pexels API key, validate live search/download and visible attribution, then add a second commercial source/fallback. The engine now uses downloaded MP4 clips when Pexels returns them; placeholder fallback remains explicitly unverified.
 3. Persist source URL, provider asset ID, license terms, attribution, commercial-use status and retrieval time per clip. Reject unverified sources for commercial mode.
 4. Implement remote audio URL handling with SSRF protection (allow-list protocols, block private/link-local IPs, limit redirects/bytes/time), as well as upload size/type/duration validation.
 5. Implement caption burn-in, SRT export, aspect ratios, transitions, volume controls, and output validation (ffprobe metadata, audio/video duration, dimensions, FPS, black/frozen-frame checks).
@@ -52,13 +54,13 @@ This roadmap follows the original Project-Initiation brief. It separates what is
 6. Re-read every assessment must-have and mark pass/partial/fail with evidence. Keep the pull request unmerged if critical tests fail.
 
 ## Acceptance checklist
-- [ ] Both apps install and build successfully.
+- [x] Both apps install and build successfully in GitHub Actions.
 - [ ] Every required screen is navigable and all primary controls work.
 - [ ] Core ScriptFlow journey is completed without claiming fake render results.
 - [ ] Core Social Studio journey is completed and exports are valid.
 - [ ] Sample/demo data and integrations are clearly identified.
 - [ ] Mobile and keyboard flows are usable.
-- [ ] Backend API contracts are documented and exercised by tests.
+- [x] Backend API contract is documented; 18 engine tests pass in GitHub Actions.
 - [ ] TTS creates real narration; video includes real licensed footage.
 - [ ] Media rights are preserved and checked for every asset.
 - [ ] Durable jobs/storage, error handling and output validation are implemented.
