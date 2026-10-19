@@ -13,9 +13,9 @@ FastAPI with typed job requests, SQLite-persisted job records and idempotency ke
 - Edge TTS needs outbound network access. If the provider fails, the job warns and may use silent timing audio. A silent output is not a narrated video.
 - Pexels/Pixabay adapters preserve source, licence and attribution metadata when configured. Without keys or after failed searches/downloads, generated placeholder visuals are used and are not commercially verified.
 - Stock media licences do not clear every depicted person, trademark, logo, or third-party work; rights review is required.
-- Remote audio URL ingestion is not implemented; uploaded audio transcription requires the optional faster-whisper extra.
+- Remote audio URL ingestion supports an explicit HTTPS host allowlist, public-address DNS checks, disabled redirects, and streamed size/content-type limits. DNS-rebinding resistance at the transport layer and deployment egress controls still need hardening. Uploaded audio transcription requires the optional faster-whisper extra.
 - SQLite persists metadata on a single host, but there is no distributed queue, shared database, object storage, authentication, rate limiting, signed callbacks, or full output-quality validation.
-- Subtitle burn-in and basic ffprobe metadata validation are implemented and verified by CI run https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39217696121 (27 engine tests passed). Black/frozen-frame detection and full audio-sync checks remain unimplemented. No public live demo or representative ten-input performance/quality/cost benchmark is available.
+- Subtitle burn-in and basic ffprobe metadata validation are implemented and verified by CI run https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39218090630 (31 engine tests passed). Black/frozen-frame detection and full audio-sync checks remain unimplemented. No public live demo or representative ten-input performance/quality/cost benchmark is available.
 
 ## Metrics
 No production latency, cost per minute, human relevance score, audio-sync score, or success-rate metric is claimed.

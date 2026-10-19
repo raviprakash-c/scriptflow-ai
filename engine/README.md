@@ -45,7 +45,7 @@ If a managed Windows device blocks Python or pip through Application Control, us
 
 ## Latest automated verification
 
-GitHub Actions run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39217696121. Both frontend production builds passed, Python syntax compilation passed, and 27 engine tests passed. This does not replace live-provider or browser acceptance tests.
+GitHub Actions run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39218090630. Both frontend production builds passed, Python syntax compilation passed, and 31 engine tests passed. This does not replace live-provider or browser acceptance tests.
 
 ## Job persistence and deployment boundaries
 
@@ -55,6 +55,6 @@ This is not a distributed queue: do not run multiple API replicas against local 
 
 ## Current limits
 
-Remote audio URL ingestion is not implemented; uploaded audio transcription requires the optional audio extra. Subtitle burn-in is enabled when requested and MP4 metadata is checked with ffprobe for H.264, expected dimensions, audio stream, duration and minimum file size. Black/frozen-frame detection and full audio-sync checks remain unimplemented. Provider adapters have mocked-response unit tests but have not been exercised with real API keys in this environment. Ten-input performance, human relevance and cost metrics are not yet measured.
+Remote audio URL ingestion requires HTTPS, an exact host in AUDIO_URL_ALLOWED_HOSTS, public DNS answers, no redirects, supported audio content type, and a streamed size limit. Uploaded audio transcription requires the optional audio extra. Deployment-level egress controls are still recommended to defend against DNS rebinding. Subtitle burn-in is enabled when requested and MP4 metadata is checked with ffprobe for H.264, expected dimensions, audio stream, duration and minimum file size. Black/frozen-frame detection and full audio-sync checks remain unimplemented. Provider adapters have mocked-response unit tests but have not been exercised with real API keys in this environment. Ten-input performance, human relevance and cost metrics are not yet measured.
 
 See REPORT.md, SOURCES.md, AI_USE.md, and ../docs/ROADMAP.md.
