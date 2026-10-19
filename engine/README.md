@@ -10,7 +10,7 @@ python -m venv .venv
 # macOS/Linux: source .venv/bin/activate
 pip install -e ".[test]"
 cp .env.example .env
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000 --env-file .env
 ```
 
 Open http://localhost:8000/docs. Run tests with `pytest`; batch run with `python scripts/batch_runner.py tests/inputs.json --out test-pack`. Docker: `cp .env.example .env && docker compose up --build`.
