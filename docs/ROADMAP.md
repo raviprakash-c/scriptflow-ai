@@ -3,9 +3,9 @@
 This roadmap follows the original Project-Initiation brief. A screen is not complete until the user journey works and the behavior is tested.
 
 ## Current branch and validation
-- Consolidated implementation branch: build/full-project-clean. Follow-up completion work is developed separately and proposed through a pull request.
+- Current working branch: build/full-project-clean; Pull Request #3 remains open and unmerged. Latest verified code commit before this documentation update: 588092825f1ec78b8395f3fdf8da7e951f45d50d.
 - Both frontends use typed local demo services backed by browser localStorage. Social sample content is labelled sample; ScriptFlow placeholder visuals and unrendered MP4 status are explicit.
-- GitHub Actions production builds for both frontends and the engine test suite passed on the consolidated revision. The follow-up changes must pass CI before they are treated as verified.
+- Latest code revision passed GitHub Actions: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39217696121. Both frontend production builds, Python syntax compilation, and 27 engine tests passed.
 - Live TTS, live stock downloads, browser-based manual journeys, and production deployment cannot be certified without provider credentials and runtime evidence.
 
 ## Completed implementation (code-level)
@@ -14,10 +14,10 @@ This roadmap follows the original Project-Initiation brief. A screen is not comp
 - [x] Social Content Studio campaign, draft editing/approval, calendar, library and CSV/JSON exports.
 - [x] FastAPI job API, scene planner, MP4 assembly, SRT/timeline/manifest outputs, optional Edge TTS and Pexels/Pixabay adapters.
 - [x] CI build/test workflow and mocked provider tests.
-- [x] SQLite job and idempotency persistence for single-host use, plus restart recovery for interrupted jobs (follow-up branch; pending CI).
+- [x] SQLite job and idempotency persistence for single-host use, restart recovery for interrupted jobs, and idempotent backend retries.
 - [ ] Durable distributed queue/shared database and object storage.
 - [ ] Remote audio URL ingestion with SSRF protection.
-- [x] SRT subtitle burn-in and basic ffprobe MP4 metadata validation (follow-up branch; pending CI).
+- [x] SRT subtitle burn-in and basic ffprobe MP4 metadata validation (H.264, dimensions, audio stream, duration, minimum file size).
 - [ ] Authentication/authorization, rate limiting, signed callbacks, and secured artifact delivery.
 - [ ] Social platform OAuth and actual publishing; do not fake connected accounts or published status.
 - [ ] Ten representative end-to-end render runs with evidence and measured metrics.

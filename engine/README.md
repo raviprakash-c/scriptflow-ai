@@ -43,6 +43,10 @@ If a managed Windows device blocks Python or pip through Application Control, us
 - POST /api/v1/jobs/{id}/retry — retry a failed job.
 - OpenAPI contract: openapi.yaml.
 
+## Latest automated verification
+
+GitHub Actions run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39217696121. Both frontend production builds passed, Python syntax compilation passed, and 27 engine tests passed. This does not replace live-provider or browser acceptance tests.
+
 ## Job persistence and deployment boundaries
 
 SQLite persists job records and idempotency keys across API process restarts on a single host. On startup, queued/running records from a prior process are marked failed with a retryable SERVER_RESTARTED error instead of remaining stuck forever. Output files and the SQLite database must live on persistent storage; Docker Compose mounts ./outputs.
