@@ -15,7 +15,7 @@ export const renderService={
  start:async(id:string)=>{
   const project=await projectService.get(id);
   if(!project)throw new Error("Project not found");
-  const base=integrationStatus.apiBaseUrl.replace(/\\/$/,"");
+  const base=integrationStatus.apiBaseUrl.replace(/\/$/,"");
   if(!base)return projectService.update(id,{status:"queued",backendJobId:undefined});
   const response=await fetch(base+"/api/v1/broll/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({script:project.script,voice:project.voice,aspect_ratios:[project.ratio],style:"bright, modern, real-world footage",captions:{burn_in:false,srt:project.captions}})});
   const payload=await response.json().catch(()=>({}));
@@ -23,7 +23,7 @@ export const renderService={
   return projectService.update(id,{status:"queued",backendJobId:payload.job_id});
  },
  status:async(jobId:string)=>{
-  const base=integrationStatus.apiBaseUrl.replace(/\\/$/,"");
+  const base=integrationStatus.apiBaseUrl.replace(/\/$/,"");
   if(!base)throw new Error("Backend API is not configured.");
   const response=await fetch(base+"/api/v1/jobs/"+encodeURIComponent(jobId));
   const payload=await response.json().catch(()=>({}));
