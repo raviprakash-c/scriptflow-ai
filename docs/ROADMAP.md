@@ -8,6 +8,13 @@ This roadmap follows the original Project-Initiation brief. It separates what is
 - Social sample content is labelled sample; ScriptFlow sample visuals and unrendered MP4 status are explicit.
 - The local GitHub integration is the source of truth for commits. Run the build workflow before merging; this coding environment cannot directly access npm/GitHub over shell networking.
 
+## Current validation status (2026-10-19)
+- [x] GitHub Actions production build: `ScriptFlowAI/frontend` passed.
+- [x] GitHub Actions production build: `SocialContentStudio/frontend` passed.
+- Build workflow run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39213435509
+- [ ] Browser-based manual user-journey testing is still required.
+- [ ] Engine/provider integration and ten-input production testing remain incomplete.
+
 ## Phase 1 — Build and validate both frontends (highest immediate priority)
 1. Run `cd ScriptFlowAI/frontend && npm install && npm run build`.
 2. Run `cd SocialContentStudio/frontend && npm install && npm run build`.
