@@ -107,8 +107,68 @@ def probe_duration(path):
     try: return float(run([exe,"-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",str(path)],30).stdout.strip())
     except ValueError as e: raise ValueError("Could not read audio duration; audio may be corrupted.") from e
 
+def _stream_number(stream, key, default):
+    try:
+        value = float(stream.get(key, default))
+        return value if value >= 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def validate_av_sync(video, audio, expected_duration):
+    """Validate stream start alignment and per-stream durations when ffprobe reports them."""
+    video_start = _stream_number(video, "start_time", 0.0)
+    audio_start = _stream_number(audio, "start_time", 0.0)
+    if abs(video_start - audio_start) > 0.25:
+        raise ValueError("Rendered audio and video start times are out of sync.")
+    tolerance = max(1.0, expected_duration * 0.05)
+    video_duration = _stream_number(video, "duration", expected_duration)
+    audio_duration = _stream_number(audio, "duration", expected_duration)
+    if abs(video_duration - audio_duration) > tolerance:
+        raise ValueError("Rendered audio and video durations are out of sync.")
+    return {
+        "video_start_seconds": round(video_start, 3),
+        "audio_start_seconds": round(audio_start, 3),
+        "video_duration_seconds": round(video_duration, 3),
+        "audio_duration_seconds": round(audio_duration, 3),
+        "start_delta_seconds": round(abs(video_start - audio_start), 3),
+        "duration_delta_seconds": round(abs(video_duration - audio_duration), 3),
+    }
+
+
+def inspect_visual_quality(path):
+    """Return black/frozen-frame diagnostics; findings are warnings for human review, not proof of defects."""
+    exe = shutil.which("ffmpeg")
+    if not exe:
+        return ["Visual quality scan skipped: ffmpeg is unavailable."]
+    try:
+        result = subprocess.run(
+            [exe, "-hide_banner", "-i", str(path), "-vf",
+             "blackdetect=d=2:pix_th=0.10,freezedetect=n=-60dB:d=3",
+             "-an", "-f", "null", "-"],
+            check=False, capture_output=True, text=True, timeout=180,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [f"Visual quality scan unavailable ({type(exc).__name__})."]
+    log_text = (result.stderr or "") + "\n" + (result.stdout or "")
+    findings = []
+    black_events = re.findall(r"black_start:([0-9.]+)\s+black_end:([0-9.]+)", log_text)
+    if black_events:
+        findings.append("Visual scan detected black intervals: " + ", ".join(
+            f"{start}-{end}s" for start, end in black_events[:10]
+        ) + ". Review the video; intentional dark scenes can trigger this warning.")
+    freeze_events = re.findall(r"lavfi\.freezedetect\.freeze_start:([0-9.]+)", log_text)
+    if freeze_events:
+        findings.append("Visual scan detected potentially frozen intervals starting at: " +
+                        ", ".join(f"{value}s" for value in freeze_events[:10]) +
+                        ". Static placeholder visuals can trigger this warning.")
+    if result.returncode != 0 and not findings:
+        findings.append("Visual quality scan did not complete successfully; inspect the render manually.")
+    return findings
+
+
 def validate_video(path, expected_width, expected_height, expected_duration):
-    """Fail the render if the MP4 is missing expected streams or has implausible metadata."""
+    """Fail invalid MP4s and report stream synchronization plus visual-quality diagnostics."""
     exe=shutil.which("ffprobe")
     if not exe: raise RuntimeError("ffprobe is required to validate rendered MP4 output; install FFmpeg.")
     raw=run([exe,"-v","error","-show_streams","-show_format","-of","json",str(path)],30).stdout
@@ -127,10 +187,12 @@ def validate_video(path, expected_width, expected_height, expected_duration):
     if actual_duration<=0: raise ValueError("Rendered MP4 has no positive duration.")
     if abs(actual_duration-expected_duration)>max(2.0,expected_duration*.05):
         raise ValueError("Rendered MP4 duration differs materially from the planned timeline.")
+    sync = validate_av_sync(video, audio, expected_duration)
     size=Path(path).stat().st_size
     if size<1024: raise ValueError("Rendered MP4 is unexpectedly small.")
     return {"codec":video.get("codec_name"),"width":expected_width,"height":expected_height,
-            "duration_seconds":round(actual_duration,3),"has_audio":True,"size_bytes":size}
+            "duration_seconds":round(actual_duration,3),"has_audio":True,"size_bytes":size,
+            "audio_video_sync":sync,"quality_warnings":inspect_visual_quality(path)}
 
 def ffmpeg_filter_path(path):
     # FFmpeg filter arguments use their own escaping rules, even on Windows.
