@@ -41,8 +41,14 @@ def test_pixabay_candidate_preserves_source_and_rights(monkeypatch):
     assert asset.commercial_use is True
     assert 0<=score<=1 and reason
 
+class FakeEmptyPexelsResponse:
+    def raise_for_status(self):
+        return None
+    def json(self):
+        return {"videos":[]}
+
 def test_composite_uses_second_provider_when_first_has_no_clip(monkeypatch):
-    responses=[FakeResponse(),FakePixabayResponse()]
+    responses=[FakeEmptyPexelsResponse(),FakePixabayResponse()]
     monkeypatch.setattr("app.providers.httpx.get",lambda *args,**kwargs: responses.pop(0))
     composite=CompositeFootageProvider([PexelsFootageProvider("pexels-key"),PixabayFootageProvider("pixabay-key")])
     asset,_,_=composite.search("team collaboration")
