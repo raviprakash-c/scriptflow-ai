@@ -1,24 +1,29 @@
 # ScriptFlow AI — Engineering report (working draft)
 
 ## Approach
-FastAPI with typed request validation, a process-local job store, idempotency keys, job status/progress, a scene planner, a mock footage adapter, FFmpeg placeholder rendering, SRT/timeline/manifest outputs, tests, OpenAPI spec and batch runner.
+FastAPI with typed job requests, a process-local job store, idempotency keys, job status/progress, scene planning, a local placeholder provider, an optional Pexels video provider, FFmpeg scene assembly, SRT/timeline/manifest outputs, tests, OpenAPI 3.1, Docker setup and a batch runner.
 
-## Tested locally
-Python source compilation passed. The local pytest suite passed (see the development-session result). A smoke request created an MP4 placeholder preview and SRT, timeline and manifest outputs. Regenerate and preserve test results from the final revision before submission.
+## Verified in this workspace
+- The local pytest suite passed before the optional Pexels integration.
+- Python syntax compilation passed for the earlier engine revision.
+- A smoke run created an MP4 placeholder preview plus SRT, timeline and manifest files.
+- GitHub Actions production builds passed for both frontends.
+- The Pexels provider now has mocked-response unit tests; it has not been exercised with a live API key in this environment.
 
 ## Known gaps
-- Generated placeholder visuals are not commercially verified footage; `commercial_use=false`. Must-have #3 is not met.
-- Default TTS is silent timing audio; script narration is not produced unless a supported TTS provider is configured. Must-have #1 is not met by default.
-- Audio transcription requires optional faster-whisper, a model, and FFmpeg/ffprobe. Remote URL ingestion is not implemented; uploaded audio is supported.
-- Process-local job state is not durable. No database, distributed queue, MinIO/S3, signed callbacks, source fallback between two real providers, subtitle burn-in, clip-swap rerender, independent relevance scoring, Hindi/Tamil QA or public live demo yet.
-- No production performance, human relevance or cost benchmarks are claimed.
+- Real narration uses the optional Edge TTS service when `TTS_PROVIDER=edge-tts`; if it fails, the worker warns and may use silent timing audio. Inspect the manifest; a silent output is not a narrated video.
+- The Pexels adapter downloads MP4 footage and preserves source/license/attribution metadata when `PEXELS_API_KEY` is configured. Without a key or after a failed search/download, generated placeholder visuals are used and remain not commercially verified.
+- Pexels commercial-use licensing does not clear every depicted person, trademark, logo, or third-party work; rights review is required.
+- Remote audio URL ingestion is not implemented; uploaded audio transcription requires the optional faster-whisper extra.
+- Process-local job state is not durable. No database, distributed queue, object storage, signed callbacks, rate limiting, user authentication, subtitle burn-in, clip-swap rerender, or full output quality validation is configured.
+- No public live demo or representative ten-input performance/quality/cost benchmark is available.
 
 ## Metrics
-Not measured on representative hardware or a ten-input suite. Do not infer costs or relevance from the generated preview.
+No production latency, cost per minute, human relevance score, audio-sync score, or success-rate metric is claimed.
 
 ## Next steps
-1. Configure a commercially licensed stock source plus fallback; preserve licence and attribution from provider responses.
-2. Configure TTS and transcription, then test English, Hindi and Tamil.
-3. Add durable jobs, storage, signed callbacks, rate limiting, and a hosted demo.
-4. Add validation for codec, resolution, FPS, black/frozen frames and audio sync; implement burned captions.
-5. Run ten varied inputs, preserve all successful and failed outputs/logs, collect reviewer scores, then complete the assessment workbook accurately.
+1. Configure a real Pexels key and test actual footage downloads, attribution and fallback behaviour.
+2. Run Edge TTS with English, Hindi and Tamil sample scripts and inspect the generated audio.
+3. Add durable jobs, object storage, auth, signed callbacks, limits and a hosted demo.
+4. Add subtitle burn-in and validate codec, resolution, FPS, duration, audio sync, black/frozen frames and clip coverage.
+5. Run at least ten varied inputs; preserve inputs, outputs, logs and measured results; complete the assessment workbook from that evidence.
