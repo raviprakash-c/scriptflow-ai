@@ -6,7 +6,7 @@ FastAPI with typed job requests, a process-local job store, idempotency keys, jo
 ## Verified in this workspace
 - GitHub Actions ran `python -m compileall -q app scripts tests` successfully and passed all 18 pytest tests before the latest Pixabay fallback tests were added; rerun CI for the current revision.
 - GitHub Actions production builds passed for both frontends.
-- The Pexels and Pixabay adapters have mocked-response unit tests; live key/download behavior is not verified.
+- The Pexels and Pixabay adapters, including the second-provider fallback, have mocked-response unit tests; live key/download behavior is not verified.
 - A smoke run on the earlier placeholder revision created an MP4 preview plus SRT, timeline and manifest files.
 
 ## Known gaps
