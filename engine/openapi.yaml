@@ -100,7 +100,7 @@ components:
     JobRequest:
       type: object
       properties:
-        audio_url: { type: [string, "null"], format: uri }
+        audio_url: { type: [string, "null"], format: uri, description: "HTTPS URL ending in .mp3, .wav, or .m4a on a host configured in AUDIO_URL_ALLOWED_HOSTS. Redirects and non-public DNS addresses are rejected." }
         script: { type: [string, "null"] }
         scenes:
           type: [array, "null"]

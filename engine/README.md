@@ -35,7 +35,7 @@ If a managed Windows device blocks Python or pip through Application Control, us
 
 ## API
 
-- POST /api/v1/broll/jobs — script/scene list.
+- POST /api/v1/broll/jobs — script/scene list or HTTPS audio URL from a host explicitly listed in AUDIO_URL_ALLOWED_HOSTS.
 - POST /api/v1/broll/jobs/upload — audio upload (MP3/WAV/M4A; transcription requires the optional audio extra).
 - GET /api/v1/jobs — recent persisted job records.
 - GET /api/v1/jobs/{id} — status/progress/result.
