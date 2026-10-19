@@ -4,15 +4,15 @@
 FastAPI with typed job requests, a process-local job store, idempotency keys, job status/progress, scene planning, a local placeholder provider, an optional Pexels video provider, FFmpeg scene assembly, SRT/timeline/manifest outputs, tests, OpenAPI 3.1, Docker setup and a batch runner.
 
 ## Verified in this workspace
-- The local pytest suite passed before the optional Pexels integration.
+- GitHub Actions ran `python -m compileall -q app scripts tests` successfully and passed all 18 pytest tests after the Pexels integration.
 - Python syntax compilation passed for the earlier engine revision.
 - A smoke run created an MP4 placeholder preview plus SRT, timeline and manifest files.
 - GitHub Actions production builds passed for both frontends.
 - The Pexels provider now has mocked-response unit tests; it has not been exercised with a live API key in this environment.
 
 ## Known gaps
-- Real narration uses the optional Edge TTS service when `TTS_PROVIDER=edge-tts`; if it fails, the worker warns and may use silent timing audio. Inspect the manifest; a silent output is not a narrated video.
-- The Pexels adapter downloads MP4 footage and preserves source/license/attribution metadata when `PEXELS_API_KEY` is configured. Without a key or after a failed search/download, generated placeholder visuals are used and remain not commercially verified.
+- Edge TTS is included as a backend dependency and can be enabled with `TTS_PROVIDER=edge-tts`; it needs outbound network access. Live speech generation still needs a manual test. If it fails, the worker warns and may use silent timing audio. Inspect the manifest; a silent output is not a narrated video.
+- The Pexels adapter downloads MP4 footage and preserves source/license/attribution metadata when `PEXELS_API_KEY` is configured. Its mocked API unit test passes; live key/download behavior is not verified. Without a key or after a failed search/download, generated placeholder visuals are used and remain not commercially verified.
 - Pexels commercial-use licensing does not clear every depicted person, trademark, logo, or third-party work; rights review is required.
 - Remote audio URL ingestion is not implemented; uploaded audio transcription requires the optional faster-whisper extra.
 - Process-local job state is not durable. No database, distributed queue, object storage, signed callbacks, rate limiting, user authentication, subtitle burn-in, clip-swap rerender, or full output quality validation is configured.
