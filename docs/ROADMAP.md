@@ -1,68 +1,43 @@
 # Full Project Completion Roadmap
 
-This roadmap follows the original Project-Initiation brief. It separates what is implemented from what still needs verification. Do not mark an item complete because a screen exists; acceptance means the user journey works and the behavior is tested.
+This roadmap follows the original Project-Initiation brief. A screen is not complete until the user journey works and the behavior is tested.
 
-## Current branch
-- `build/two-product-frontends` contains two independent React + TypeScript + Vite frontend roots and the initial API-engine branch.
-- Both frontends use typed local demo services backed by browser localStorage.
-- Social sample content is labelled sample; ScriptFlow sample visuals and unrendered MP4 status are explicit.
-- The local GitHub integration is the source of truth for commits. Run the build workflow before merging; this coding environment cannot directly access npm/GitHub over shell networking.
+## Current branch and validation
+- Consolidated implementation branch: build/full-project-clean. Follow-up completion work is developed separately and proposed through a pull request.
+- Both frontends use typed local demo services backed by browser localStorage. Social sample content is labelled sample; ScriptFlow placeholder visuals and unrendered MP4 status are explicit.
+- GitHub Actions production builds for both frontends and the engine test suite passed on the consolidated revision. The follow-up changes must pass CI before they are treated as verified.
+- Live TTS, live stock downloads, browser-based manual journeys, and production deployment cannot be certified without provider credentials and runtime evidence.
 
-## Current validation status (2026-10-19)
-- [x] GitHub Actions production build: `ScriptFlowAI/frontend` passed.
-- [x] GitHub Actions production build: `SocialContentStudio/frontend` passed.
-- [x] Python syntax compilation and all 20 engine tests passed in CI.
-- [x] Optional Pexels/Pixabay adapters and mocked API/fallback tests added; real API keys are still needed for live validation.
-- Build workflow run: https://github.com/raviprakash-c/scriptflow-ai/actions/runs/39214536310
-- [ ] Browser-based manual user-journey testing is still required.
-- [ ] Engine/provider integration and ten-input production testing remain incomplete.
+## Completed implementation (code-level)
+- [x] Two separate React + TypeScript + Vite frontend roots.
+- [x] ScriptFlow project creation, scene planning/editing, footage assignment, render status integration, export/history/settings screens.
+- [x] Social Content Studio campaign, draft editing/approval, calendar, library and CSV/JSON exports.
+- [x] FastAPI job API, scene planner, MP4 assembly, SRT/timeline/manifest outputs, optional Edge TTS and Pexels/Pixabay adapters.
+- [x] CI build/test workflow and mocked provider tests.
+- [x] SQLite job and idempotency persistence for single-host use, plus restart recovery for interrupted jobs (follow-up branch; pending CI).
+- [ ] Durable distributed queue/shared database and object storage.
+- [ ] Remote audio URL ingestion with SSRF protection.
+- [ ] Subtitle burn-in and comprehensive output validation.
+- [ ] Authentication/authorization, rate limiting, signed callbacks, and secured artifact delivery.
+- [ ] Social platform OAuth and actual publishing; do not fake connected accounts or published status.
+- [ ] Ten representative end-to-end render runs with evidence and measured metrics.
+- [ ] Hosted demo and assessment workbook populated from verified evidence.
 
-## Phase 1 — Build and validate both frontends (highest immediate priority)
-1. Run `cd ScriptFlowAI/frontend && npm install && npm run build`.
-2. Run `cd SocialContentStudio/frontend && npm install && npm run build`.
-3. Fix TypeScript/build failures before adding more features.
-4. Test the ScriptFlow journey: create project → edit script → review scenes → assign sample visuals → review render checklist → export timeline/manifest/SRT. Confirm no UI claims an MP4 exists.
-5. Test the Social Studio journey: create campaign → generate local sample drafts → edit → approve/reject → plan a date → filter library/calendar → export CSV and JSON.
-6. Check desktop, tablet, mobile, keyboard navigation, labels, empty states and confirmation prompts.
-7. Add CI build checks and record actual results in this document.
+## Required local validation
+1. Build each frontend from its own directory: npm install, then npm run build.
+2. Run engine tests from engine: python -m pip install -e ".[test]", then python -m pytest -q.
+3. Test ScriptFlow: create project → edit script → review scenes → assign sample visuals → start render → check real job status → download actual artifacts. Never claim an MP4 exists when only local demo data is present.
+4. Test Social Studio: create campaign → generate labelled sample drafts → edit → approve/reject → schedule a draft date → filter library/calendar → export CSV and JSON.
+5. Check desktop/tablet/mobile, keyboard navigation, labels, empty states, errors and confirmation prompts.
+6. Configure provider keys only in the backend environment; test live TTS and stock footage, inspect all license/source/attribution metadata, and manually review depicted people/logos/trademarks.
+7. Run ten varied inputs (short/long scripts, audio, multiple aspect ratios and languages); save inputs, outputs, logs and measured metrics. Do not invent costs or quality scores.
+8. Complete the assessment workbook only from actual evidence and screenshots.
 
-## Phase 2 — ScriptFlow engine: real outputs
-1. Run Edge TTS with the configured voice on live network; validate non-empty narration audio and probed duration. A silent-audio fallback must never be represented as a narrated render.
-2. Configure a real Pexels API key, validate live search/download and visible attribution, then add a second commercial source/fallback. The engine now uses downloaded MP4 clips when Pexels returns them; placeholder fallback remains explicitly unverified.
-3. Persist source URL, provider asset ID, license terms, attribution, commercial-use status and retrieval time per clip. Reject unverified sources for commercial mode.
-4. Implement remote audio URL handling with SSRF protection (allow-list protocols, block private/link-local IPs, limit redirects/bytes/time), as well as upload size/type/duration validation.
-5. Implement caption burn-in, SRT export, aspect ratios, transitions, volume controls, and output validation (ffprobe metadata, audio/video duration, dimensions, FPS, black/frozen-frame checks).
-6. Move jobs from in-memory state to a durable database and queue. Add safe retries, cancellation, concurrency limits, rate limiting, timeouts and cleanup of temporary files.
-7. Add object storage or persistent artifact storage, short-lived download URLs, retention policies, and a callback/webhook design with signatures if required by the assessment.
-8. Add job progress that reflects real stages, stable job IDs, structured logs, correlation IDs, and retryable vs terminal errors.
-9. Run at least ten varied inputs (script/audio, short/long, 16:9/9:16, multi-language). Save every input, job status, output, logs, and measured runtime. Do not invent costs or quality scores.
+## Remaining production work
+1. Add shared database/queue, storage lifecycle, retry/cancel semantics, authentication, authorization, rate limiting and secured artifact delivery.
+2. Implement remote audio ingestion safely (allow-list protocols, block private/link-local IPs, limit redirects/bytes/time), upload validation and subtitle burn-in.
+3. Validate outputs with ffprobe (codec, dimensions, FPS, duration, audio/video sync), and detect black/frozen frames and uncovered scene gaps.
+4. Add Social Studio backend persistence and provider OAuth only when credentials and authorization are available; use explicit preview/confirmation and idempotent publishing.
+5. Deploy a public demo after secrets, persistence, monitoring and security checks are configured.
 
-## Phase 3 — Social Content Studio: integration-ready workflow
-1. Keep local storage isolated behind the existing service interface; add a backend API adapter selected by configuration.
-2. Add persistent server-side campaigns/posts, ownership and validation, and audit history for edits and approvals.
-3. If AI generation is added, keep prompts/templates on the backend, validate structured output, apply platform character limits, and clearly distinguish generated from user-edited content.
-4. Add real analytics only after OAuth/account connection and verified provider metrics are implemented.
-5. Implement real publishing/scheduling only with explicit account authorization, preview, confirmation, timezone handling, provider success response, and retry/idempotency handling. Never fake published status.
-6. Add CSV/JSON export tests, import validation if added, duplicate detection, and date/timezone tests.
-
-## Phase 4 — Shared production readiness
-1. Add CI for both frontends and the engine tests; pin dependency versions and commit lockfiles.
-2. Add API contract tests, auth/authorization, secret management, CORS restrictions, rate limits, input validation, dependency scanning, and secure file delivery.
-3. Add accessibility review (keyboard, focus, labels, contrast), responsive viewport checks, and error-boundary coverage.
-4. Add deployment configuration and health checks; deploy only after secrets and persistence are configured.
-5. Update the Excel submission workbook only with real evidence. Attach test logs, example outputs, screenshots, a working demo URL if available, source/licence records, and measured metrics.
-6. Re-read every assessment must-have and mark pass/partial/fail with evidence. Keep the pull request unmerged if critical tests fail.
-
-## Acceptance checklist
-- [x] Both apps install and build successfully in GitHub Actions.
-- [ ] Every required screen is navigable and all primary controls work.
-- [ ] Core ScriptFlow journey is completed without claiming fake render results.
-- [ ] Core Social Studio journey is completed and exports are valid.
-- [ ] Sample/demo data and integrations are clearly identified.
-- [ ] Mobile and keyboard flows are usable.
-- [x] Backend API contract is documented; 18 engine tests pass in GitHub Actions.
-- [ ] Live TTS produces real narration; video includes real licensed footage from configured providers.
-- [ ] Media rights are preserved and checked for every asset.
-- [ ] Durable jobs/storage, error handling and output validation are implemented.
-- [ ] Ten representative test runs have evidence and honest metrics.
-- [ ] Deployment and submission workbook are backed by verified evidence.
+The pull request should remain unmerged if CI fails or critical tests fail. A green build is not evidence of live-provider or deployment acceptance.
