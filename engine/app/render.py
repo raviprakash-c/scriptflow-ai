@@ -106,6 +106,7 @@ def render_job(job_id,request,input_path,progress):
                     except Exception:
                         fallback,score,why=search_footage(scene.visual_hint or scene.text,request.avoid,used)
                         local_video_path=None
+                if fallback.footage_id in used:raise RuntimeError("No unique footage fallback remains for this scene.")
                 asset=fallback;used.add(asset.footage_id);reason=f"Primary stock download failed ({type(exc).__name__}); fallback selected. {why}"
         warnings_scene=[]
         if local_video_path:
