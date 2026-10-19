@@ -1,7 +1,8 @@
-import html,json,logging,os,shutil,subprocess,time,wave
+import html,ipaddress,json,logging,os,shutil,socket,subprocess,time,uuid,wave
 import httpx
 from datetime import datetime,timezone
 from pathlib import Path
+from urllib.parse import urlparse
 from .config import settings
 from .planner import plan_scenes,split_script
 from .providers import FootageProvider,get_footage_provider,search_footage
@@ -25,6 +26,80 @@ def download_clip(url,path):
         path.unlink(missing_ok=True)
         raise ValueError("Stock clip download was empty or too small.")
     return path
+
+def validate_remote_audio_url(url):
+    """Allow HTTPS audio URLs only for explicitly configured hosts with public DNS answers."""
+    parsed=urlparse(url)
+    host=(parsed.hostname or "").rstrip(".").lower()
+    if parsed.scheme!="https" or not host or parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("Remote audio URL must be a credential-free HTTPS URL.")
+    if parsed.port not in (None,443):
+        raise ValueError("Remote audio URLs may only use HTTPS port 443.")
+    allowed=set(settings.audio_url_allowed_hosts)
+    if not allowed or host not in allowed:
+        raise ValueError("Remote audio host is not allow-listed; configure AUDIO_URL_ALLOWED_HOSTS.")
+    try:
+        ipaddress.ip_address(host)
+        raise ValueError("Remote audio host must be a DNS name, not an IP literal.")
+    except ValueError as exc:
+        if str(exc).startswith("Remote audio host"):
+            raise
+    try:
+        addresses=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise ValueError("Remote audio host could not be resolved.") from exc
+    if not addresses:
+        raise ValueError("Remote audio host has no DNS addresses.")
+    for address in addresses:
+        try:
+            ip=ipaddress.ip_address(address[4][0])
+        except ValueError as exc:
+            raise ValueError("Remote audio host resolved to an invalid IP address.") from exc
+        if not ip.is_global:
+            raise ValueError("Remote audio host resolves to a non-public IP address.")
+    suffix=Path(parsed.path).suffix.lower()
+    if suffix not in {".mp3",".wav",".m4a"}:
+        raise ValueError("Remote audio URL path must end in .mp3, .wav, or .m4a.")
+    return host,suffix
+
+
+def download_remote_audio(url, upload_dir):
+    host,suffix=validate_remote_audio_url(url)
+    upload_dir=Path(upload_dir)
+    upload_dir.mkdir(parents=True,exist_ok=True)
+    target=upload_dir/f"remote-{uuid.uuid4()}{suffix}"
+    limit=settings.max_upload_mb*1024*1024
+    total=0
+    try:
+        # Redirects are intentionally disabled so an allow-listed URL cannot redirect to a private host.
+        with httpx.stream("GET",url,follow_redirects=False,timeout=httpx.Timeout(30,connect=10)) as response:
+            if 300<=response.status_code<400:
+                raise ValueError("Remote audio redirects are not allowed.")
+            response.raise_for_status()
+            content_type=response.headers.get("content-type","").split(";",1)[0].strip().lower()
+            allowed_types={"audio/mpeg","audio/mp3","audio/wav","audio/x-wav","audio/wave","audio/mp4","audio/x-m4a","application/octet-stream"}
+            if content_type not in allowed_types:
+                raise ValueError("Remote URL did not return a supported audio content type.")
+            declared=response.headers.get("content-length")
+            if declared:
+                try:
+                    if int(declared)>limit: raise ValueError(f"Remote audio exceeds {settings.max_upload_mb} MB limit.")
+                except ValueError as exc:
+                    if "exceeds" in str(exc): raise
+            with target.open("wb") as output:
+                for chunk in response.iter_bytes(1024*1024):
+                    if not chunk: continue
+                    total+=len(chunk)
+                    if total>limit:
+                        raise ValueError(f"Remote audio exceeds {settings.max_upload_mb} MB limit.")
+                    output.write(chunk)
+        if total<1024:
+            raise ValueError("Remote audio download was empty or too small.")
+        return target
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+
 
 def probe_duration(path):
     exe=shutil.which("ffprobe")
@@ -98,7 +173,8 @@ def make_tts(text,voice,path):
 def render_job(job_id,request,input_path,progress):
     t0=time.perf_counter();outdir=settings.output_dir/job_id;outdir.mkdir(parents=True,exist_ok=True)
     warnings=[];tts_provider="input-audio"
-    if request.audio_url and not input_path: raise ValueError("Remote audio URL is not enabled in this local build; use the upload endpoint.")
+    if request.audio_url and not input_path:
+        input_path=download_remote_audio(request.audio_url,settings.output_dir/"uploads")
     if input_path:
         if input_path.suffix.lower() not in {".mp3",".wav",".m4a"}:raise ValueError("Supported audio formats: mp3, wav, m4a.")
         duration=probe_duration(input_path)

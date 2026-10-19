@@ -114,14 +114,6 @@ async def submit(
 ):
     if idempotency_key and len(idempotency_key) > 200:
         raise ServiceError("INVALID_IDEMPOTENCY_KEY", "Idempotency-Key too long.")
-    if request.audio_url:
-        raise ServiceError(
-            "REMOTE_AUDIO_UNAVAILABLE",
-            "Remote audio URL ingestion is not enabled; use the upload endpoint.",
-            False,
-            {},
-            501,
-        )
     digest = hashlib.sha256(request.model_dump_json().encode()).hexdigest()
     return _submit(request, idempotency_key, digest, background)
 
