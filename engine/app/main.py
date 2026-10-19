@@ -232,7 +232,29 @@ def retry(
         raise ServiceError("JOB_NOT_FOUND", "No job exists with this id.", False, {"job_id": job_id}, 404)
     if old["status"] != "failed":
         raise ServiceError("JOB_NOT_FAILED", "Only failed jobs can be retried.", False, {"status": old["status"]}, 409)
-    digest = hashlib.sha256((job_id + str(uuid.uuid4())).encode()).hexdigest()
-    fresh, _ = create_job(old["request"], idempotency_key, digest, Path(old["input_path"]) if old.get("input_path") else None)
-    background.add_task(run_job, fresh["job_id"])
-    return {"job_id": fresh["job_id"], "status": fresh["status"], "status_url": f"/api/v1/jobs/{fresh['job_id']}", "retry_of": job_id}
+    if idempotency_key and len(idempotency_key) > 200:
+        raise ServiceError("INVALID_IDEMPOTENCY_KEY", "Idempotency-Key too long.")
+    digest = hashlib.sha256(("retry:" + job_id).encode()).hexdigest()
+    fresh, state = create_job(
+        old["request"],
+        idempotency_key,
+        digest,
+        Path(old["input_path"]) if old.get("input_path") else None,
+    )
+    if state == "conflict":
+        raise ServiceError(
+            "IDEMPOTENCY_KEY_REUSED",
+            "Idempotency-Key already used for a different request.",
+            False,
+            {"header": "Idempotency-Key"},
+            409,
+        )
+    if state == "created":
+        background.add_task(run_job, fresh["job_id"])
+    return {
+        "job_id": fresh["job_id"],
+        "status": fresh["status"],
+        "status_url": f"/api/v1/jobs/{fresh['job_id']}",
+        "retry_of": job_id,
+        "idempotent_replay": state == "replay",
+    }
