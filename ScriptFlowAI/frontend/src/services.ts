@@ -16,7 +16,7 @@ export const renderService={
   const project=await projectService.get(id);
   if(!project)throw new Error("Project not found");
   const base=integrationStatus.apiBaseUrl.replace(/\/$/,"");
-  if(!base)return projectService.update(id,{status:"queued",backendJobId:undefined});
+  if(!base)return projectService.update(id,{status:"draft",backendJobId:undefined});
   const response=await fetch(base+"/api/v1/broll/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({script:project.script,voice:project.voice,aspect_ratios:[project.ratio],style:"bright, modern, real-world footage",captions:{burn_in:false,srt:project.captions}})});
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(payload?.error?.message||"Backend rejected the render request.");
