@@ -1,5 +1,6 @@
 import html,ipaddress,json,logging,os,re,shutil,socket,subprocess,time,uuid,wave
 import httpx
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 from datetime import datetime,timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -211,11 +212,54 @@ def build_srt(scenes):
         for c,w in zip(chunks,weights):
             dt=dur*w/total;lines.extend([str(n),f"{srt_time(at)} --> {srt_time(at+dt)}",c,""]);n+=1;at+=dt
     return "\n".join(lines).strip()+"\n"
-def write_svg(path,title,color,ratio):
-    sizes={"16:9":(1920,1080),"9:16":(1080,1920),"1:1":(1080,1080)};w,h=sizes[ratio]
-    label=html.escape(title[:80],quote=True);font=int(min(w,h)*.044)
-    raw=f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111521"/><stop offset="1" stop-color="#222e43"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="{w*.78}" cy="{h*.25}" r="{min(w,h)*.24}" fill="{color}" opacity=".24"/><circle cx="{w*.18}" cy="{h*.78}" r="{min(w,h)*.3}" fill="{color}" opacity=".12"/><path d="M{w*.15} {h*.63} Q{w*.39} {h*.28} {w*.55} {h*.55} T{w*.88} {h*.32}" fill="none" stroke="{color}" stroke-width="{max(5,int(min(w,h)*.008))}" stroke-linecap="round"/><rect x="{w*.09}" y="{h*.38}" width="{w*.82}" height="{h*.24}" rx="{min(w,h)*.025}" fill="#090c13" opacity=".62" stroke="{color}" stroke-opacity=".55"/><text x="50%" y="{h*.49}" fill="#fff" font-size="{font}" text-anchor="middle" font-family="Arial" font-weight="700">{label}</text><text x="50%" y="{h*.55}" fill="#c8cede" font-size="{int(font*.42)}" text-anchor="middle" font-family="Arial">SCRIPTFlow AI - PLACEHOLDER VISUAL</text></svg>'''
-    path.write_text(raw,encoding="utf-8")
+def write_placeholder_png(path, title, color, ratio):
+    sizes = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080)}
+    w, h = sizes[ratio]
+    image = Image.new("RGB", (w, h))
+    draw = ImageDraw.Draw(image)
+    try:
+        accent = ImageColor.getrgb(color)
+    except (ValueError, TypeError):
+        accent = (90, 130, 220)
+    for y in range(h):
+        t = y / max(1, h - 1)
+        base = tuple(int(a * (1 - t) + b * t) for a, b in zip((17, 21, 33), (34, 46, 67)))
+        draw.line((0, y, w, y), fill=base)
+    m = min(w, h)
+    draw.ellipse((w*.54, h*.01, w*1.02, h*.49), fill=tuple(int(c*.24+b*.76) for c,b in zip(accent,(17,21,33))))
+    draw.ellipse((-w*.12, h*.58, w*.48, h*1.18), fill=tuple(int(c*.12+b*.88) for c,b in zip(accent,(17,21,33))))
+    draw.line([(w*.15,h*.63),(w*.39,h*.28),(w*.55,h*.55),(w*.70,h*.72),(w*.88,h*.32)],
+              fill=accent, width=max(5,int(m*.008)), joint="curve")
+    draw.rounded_rectangle((int(w*.09),int(h*.38),int(w*.91),int(h*.62)),
+                           radius=int(m*.025), fill=(9,12,19), outline=accent,
+                           width=max(2,int(m*.002)))
+    try:
+        font = ImageFont.truetype("arial.ttf", int(m*.044))
+        small_font = ImageFont.truetype("arial.ttf", int(m*.0185))
+    except OSError:
+        font = ImageFont.load_default()
+        small_font = ImageFont.load_default()
+    words = str(title)[:80].split()
+    lines, current = [], ""
+    for word in words:
+        candidate = (current + " " + word).strip()
+        if draw.textbbox((0,0),candidate,font=font)[2] > w*.76 and current:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    lines = lines[:3]
+    heights = [draw.textbbox((0,0),line,font=font)[3] for line in lines]
+    y = h*.49 - (sum(heights)+max(0,len(lines)-1)*int(m*.012))/2
+    for line, height in zip(lines, heights):
+        draw.text((w/2,y),line,font=font,fill="white",anchor="ma")
+        y += height + int(m*.012)
+    draw.text((w/2,h*.565),"SCRIPTFlow AI - PLACEHOLDER VISUAL",
+              font=small_font,fill=(200,206,222),anchor="mm")
+    image.save(path, format="PNG")
+
 def transcribe(path):
     try:
         from faster_whisper import WhisperModel
@@ -296,8 +340,7 @@ def render_job(job_id,request,input_path,progress):
                 if row.get("local_video_path"):
                     run([ffmpeg,"-y","-loglevel","error","-stream_loop","-1","-i",row["local_video_path"],"-t",f"{max(.1,row['duration']):.3f}","-vf",f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={settings.default_fps},format=yuv420p","-an","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-movflags","+faststart",str(seg)],180)
                 else:
-                    write_svg(svg,row["text"],row["color"],ratio)
-                    run([ffmpeg,"-y","-loglevel","error","-i",str(svg),"-frames:v","1",str(png)],60)
+                    write_placeholder_png(png,row["text"],row["color"],ratio)
                     run([ffmpeg,"-y","-loglevel","error","-loop","1","-framerate",str(settings.default_fps),"-i",str(png),"-t",f"{max(.1,row['duration']):.3f}","-vf",f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p","-r",str(settings.default_fps),"-an","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p",str(seg)],120)
                 files.append(seg)
             concat=outdir/f"concat-{ratio.replace(':','x')}.txt";concat.write_text("".join(f"file '{x.as_posix()}'\n" for x in files))
