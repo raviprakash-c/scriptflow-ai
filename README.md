@@ -1,74 +1,109 @@
 # ScriptFlow AI & Social Content Studio
 
-This repository contains two independent frontends and the ScriptFlow AI video-generation API.
+ScriptFlow AI is an IncuBrix PS3 project for turning a script into a narrated video with captions. This repository also contains a separate Social Content Studio frontend and the video-generation API.
 
-## First: get the correct project branch
+## Live demo
 
-The full workspace currently lives on branch build/full-project-clean and is proposed in Pull Request #3. If your local repository only has a folder named frontend, it is likely on an older revision. From the repository root, run:
+- **ScriptFlow AI frontend:** https://scriptflow-frontend.onrender.com
+- **Backend API:** https://scriptflow-ai-soie.onrender.com
+- **Backend health check:** https://scriptflow-ai-soie.onrender.com/health
+- **Interactive API documentation:** https://scriptflow-ai-soie.onrender.com/docs
+- **Full-project pull request:** https://github.com/raviprakash-c/scriptflow-ai/pull/3
 
-    git fetch origin
-    git switch build/full-project-clean
+The frontend and backend are deployed as separate Render services. Open the frontend to try the application; use the health check to confirm that the backend responds. A healthy backend does not by itself guarantee that a complete render will succeed, so test a generation before a presentation. Render free services may sleep, restart, or run out of resources during longer jobs. Generated files and SQLite job data on an ephemeral filesystem may not survive a service restart.
 
-If Git says the local branch does not exist, run:
+## Repository layout and branch
 
-    git switch --track origin/build/full-project-clean
+The full workspace is on branch `build/full-project-clean` and is proposed in Pull Request #3. To fetch it locally:
 
-After switching, these directories must exist: ScriptFlowAI/frontend, SocialContentStudio/frontend, and engine. If the branch is not available remotely, open the pull request linked below and check it out from GitHub.
+```powershell
+git fetch origin
+git switch build/full-project-clean
+```
 
-## Start everything on Windows
+If the local branch does not exist yet:
 
-Open PowerShell at the repository root and run:
+```powershell
+git switch --track origin/build/full-project-clean
+```
 
-    .\scripts\dev.ps1
+The workspace includes `ScriptFlowAI/frontend`, `SocialContentStudio/frontend`, and `engine`.
+
+## Run locally on Windows
+
+From the repository root, run:
+
+```powershell
+.\scripts\dev.ps1
+```
 
 This opens separate terminal windows for both frontends and the API. To start only one component:
 
-    .\scripts\dev.ps1 -App ScriptFlow
-    .\scripts\dev.ps1 -App SocialStudio
-    .\scripts\dev.ps1 -App Backend
+```powershell
+.\scripts\dev.ps1 -App ScriptFlow
+.\scripts\dev.ps1 -App SocialStudio
+.\scripts\dev.ps1 -App Backend
+```
 
-The default local URLs are:
+Default local URLs:
+
 - ScriptFlow AI: http://localhost:5173
 - Social Content Studio: http://localhost:5174
 - Engine API docs: http://localhost:8000/docs
 
-The script installs frontend dependencies when node_modules is missing. For the engine, it creates a local Python virtual environment, copies engine/.env.example to engine/.env if needed, installs the package and tests, then starts Uvicorn. If a managed Windows device blocks Python/pip through Application Control, use an approved Python environment or ask the administrator; do not try to bypass the policy.
+### Start components manually
 
-## Start components manually
+**ScriptFlow AI frontend**
 
-### ScriptFlow AI
+```powershell
+cd ScriptFlowAI/frontend
+npm install
+npm run dev
+```
 
-    cd ScriptFlowAI/frontend
-    npm install
-    npm run dev
+**Social Content Studio frontend**
 
-### Social Content Studio
+```powershell
+cd SocialContentStudio/frontend
+npm install
+npm run dev -- --port 5174
+```
 
-    cd SocialContentStudio/frontend
-    npm install
-    npm run dev -- --port 5174
+**Engine API**
 
-### Engine API
+```powershell
+cd engine
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+py -m pip install -e ".[test]"
+Copy-Item .env.example .env
+python -m uvicorn app.main:app --reload --port 8000 --env-file .env
+```
 
-    cd engine
-    py -m venv .venv
-    .venv\Scripts\Activate.ps1
-    py -m pip install -e ".[test]"
-    Copy-Item .env.example .env
-    python -m uvicorn app.main:app --reload --port 8000 --env-file .env
+For local narration with Edge TTS, install the project's dependencies including `edge-tts` and set `TTS_PROVIDER=edge-tts` in the backend process environment before starting Uvicorn. Do not commit secrets or local `.env` files. On macOS/Linux, activate the virtual environment with `source .venv/bin/activate` and copy the example file with `cp .env.example .env`.
 
-On macOS/Linux, activate with source .venv/bin/activate and copy with cp .env.example .env.
+## Main capabilities
 
-## Product boundaries
+- ScriptFlow AI frontend for script input, scene planning, render status, and video export.
+- Backend API for creating and checking jobs and accessing generated output files.
+- Text-to-speech narration when the Edge TTS provider is configured and reachable.
+- Caption output when enabled for a generation.
+- Separate Social Content Studio frontend for campaign briefs, labelled sample content, editing and approvals, calendar planning, library search, workflow counts, and CSV/JSON export.
 
-ScriptFlow is a workspace for projects, scene plans, footage assignment, render status and exports. Local demo visuals are not licensed stock footage; the frontend must not claim an MP4 exists until a real render has completed.
+Feature availability depends on the selected configuration and successful completion of a job. Verify the generated MP4, audio, captions, and manifest rather than assuming that a submitted job produced a complete result.
 
-Social Content Studio supports campaign briefs, labelled sample content, editing and approvals, calendar planning, library search, workflow counts and CSV/JSON export. No social accounts are connected and no posts are automatically published.
+## Limitations and responsible use
 
-Both frontends use isolated localStorage adapters until real APIs are connected. Never place provider API keys in frontend environment variables. The engine uses SQLite for single-host job metadata, but it is not a distributed queue. Live TTS, stock footage, media rights, production security, hosting and the assessment workbook still require evidence. See docs/ROADMAP.md.
+- Demo or placeholder visuals are not the same as verified, licensed stock footage. Do not describe placeholder footage as real stock media.
+- Commercial media rights have not been independently verified for every output. Review source licences and third-party rights before publishing.
+- Social Content Studio does not connect social accounts or automatically publish posts.
+- Both frontends use isolated localStorage adapters for some data until the relevant APIs are connected.
+- The engine uses SQLite for single-host job metadata; it is not a distributed job queue. Ephemeral hosting storage can cause job history and output files to disappear after a restart.
+- Render free services may sleep or restart, and long video renders may time out or exceed available memory.
+- Never put provider API keys in frontend environment variables or commit secrets.
+
+See `docs/ROADMAP.md` for further project notes. GitHub Actions builds both frontends and runs engine tests; a green CI build does not, by itself, prove that live provider calls or deployed video generation work.
 
 ## Pull request and CI
 
 Full-project pull request: https://github.com/raviprakash-c/scriptflow-ai/pull/3
-
-GitHub Actions builds both frontends and runs engine tests. A green CI build is not evidence of live provider calls or a deployed public demo.
