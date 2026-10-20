@@ -1,0 +1,6 @@
+export type JobStatus="draft"|"queued"|"rendering"|"succeeded"|"failed";
+export type Scene={id:string;text:string;visualHint:string;duration:number;footage:string;source:string;licenseStatus:"sample"|"verified"|"unknown"};
+export type Project={id:string;title:string;script:string;status:JobStatus;createdAt:string;ratio:"16:9"|"9:16";voice:string;language:string;captions:boolean;scenes:Scene[];lastUpdated:string;backendJobId?:string};
+export type Artifact={name:string;kind:"video"|"captions"|"timeline"|"manifest";available:boolean;note:string};
+export const SAMPLE_SCRIPT="A great idea starts with a clear plan. Break your goal into small steps, track your progress, and keep learning from every result. Consistent action turns a good idea into meaningful change.";
+export function scenesFromScript(script:string):Scene[]{return script.split(/(?<=[.!?])\s+/).map((text,i)=>text.trim()).filter(Boolean).map((text,i)=>({id:crypto.randomUUID(),text,visualHint:text.split(/\s+/).slice(0,5).join(" "),duration:Math.max(3,Math.round(text.split(/\s+/).length/2.4)),footage:"Unassigned sample visual",source:"Local demo",licenseStatus:"sample"}));}

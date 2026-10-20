@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      OUTPUT_DIR: /app/outputs
+      JOB_DB_PATH: /app/outputs/jobs.sqlite3
+    volumes:
+      - ./outputs:/app/outputs
+    healthcheck:
+      test: ["CMD","python","-c","import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

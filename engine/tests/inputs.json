@@ -1,0 +1,36 @@
+[
+  {
+    "script": "Save money by planning a weekly budget. Review subscriptions and build an emergency fund.",
+    "aspect_ratios": [
+      "16:9"
+    ]
+  },
+  {
+    "script": "Cloud computing helps teams share data across secure networks.",
+    "aspect_ratios": [
+      "16:9",
+      "9:16"
+    ]
+  },
+  {
+    "script": "Trust is earned slowly. Small promises build confidence over time.",
+    "aspect_ratios": [
+      "1:1"
+    ]
+  },
+  {
+    "scenes": [
+      {
+        "text": "Start with a clear goal",
+        "visual_hint": "planning, checklist"
+      },
+      {
+        "text": "Track progress every week",
+        "visual_hint": "growth, chart"
+      }
+    ],
+    "aspect_ratios": [
+      "16:9"
+    ]
+  }
+]

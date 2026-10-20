@@ -1,0 +1,34 @@
+# Node / Vite
+node_modules/
+dist/
+coverage/
+*.local
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.coverage
+
+# Generated media
+*.mp4
+*.wav
+*.mp3
+*.m4a
+
+# Generated local files
+engine/scriptflow_ai.egg-info/
+**/tsconfig.tsbuildinfo
